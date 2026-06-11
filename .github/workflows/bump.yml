@@ -1,0 +1,68 @@
+name: bump
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Find latest upstream version + hash
+        id: latest
+        run: |
+          set -euo pipefail
+          PKGS=$(curl -fsSL "https://repo.certilia.com/repository/debian/dists/univ/main/binary-amd64/Packages")
+
+          # Last certiliamiddleware stanza in the index is the newest.
+          VER=$(echo "$PKGS" | awk '
+            /^Package: certiliamiddleware$/ { inpkg=1; next }
+            inpkg && /^Version:/ { v=$2 }
+            inpkg && /^SHA256:/  { s=$2 }
+            inpkg && /^$/        { inpkg=0; print v" "s }
+            END { if (inpkg) print v" "s }
+          ' | tail -n1 | cut -d" " -f1)
+          SHA=$(echo "$PKGS" | awk -v want="$VER" '
+            /^Package: certiliamiddleware$/ { inpkg=1; next }
+            inpkg && /^Version:/ { v=$2 }
+            inpkg && /^SHA256:/  { s=$2 }
+            inpkg && /^$/        { if (v==want) print s; inpkg=0 }
+            END { if (inpkg && v==want) print s }
+          ' | tail -n1)
+
+          SRI=$(nix hash to-sri --type sha256 "$SHA")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "hash=$SRI"    >> "$GITHUB_OUTPUT"
+
+      - name: Patch flake.nix
+        run: |
+          set -euo pipefail
+          sed -i 's|version = "[^"]*";|version = "${{ steps.latest.outputs.version }}";|' flake.nix
+          sed -i 's|hash = "sha256-[^"]*";|hash = "${{ steps.latest.outputs.hash }}";|' flake.nix
+
+      - name: Verify it builds
+        run: nix build .#default --no-link
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "certilia-middleware ${{ steps.latest.outputs.version }}"
+          branch: bump/certilia-${{ steps.latest.outputs.version }}
+          title: "Bump to ${{ steps.latest.outputs.version }}"
+          body: |
+            Automated bump to upstream version `${{ steps.latest.outputs.version }}`.
+
+            - hash: `${{ steps.latest.outputs.hash }}`
+            - verified with `nix build .#default`
