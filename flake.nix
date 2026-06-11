@@ -57,15 +57,18 @@
             libjpeg8     # libjpeg.so.8 for the bundled JPEG2000 image plugin
             cups         # libcups.so.2 for the bundled print-support plugin
             xcb-util-cursor
-            xorg.libX11
-            xorg.libXext
-            xorg.libXrender
-            xorg.libxcb
-            xorg.xcbutil
-            xorg.xcbutilimage
-            xorg.xcbutilkeysyms
-            xorg.xcbutilrenderutil
-            xorg.xcbutilwm
+            # The xorg.* package set is deprecated; these are now top-level.
+            # Hyphenated names can't be bare under `with pkgs` (parsed as
+            # subtraction), so they're accessed explicitly.
+            libx11
+            libxext
+            libxrender
+            libxcb
+            pkgs."libxcb-util"
+            pkgs."libxcb-image"
+            pkgs."libxcb-keysyms"
+            pkgs."libxcb-render-util"
+            pkgs."libxcb-wm"
           ];
 
           unpackPhase = ''
