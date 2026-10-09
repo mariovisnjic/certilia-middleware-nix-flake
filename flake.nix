@@ -14,12 +14,12 @@
           config.allowUnfree = true;
         };
 
-        version = "3.9.10-3";
+        version = "3.9.12-1";
 
         sources = {
           "x86_64-linux" = {
             arch = "amd64";
-            hash = "sha256-bUiLeTAResuglDsyiYPaEruzAdcoVNaFG1PTeNL8SB4=";
+            hash = "sha256-h34ddSfavOkg6MfoVEWTCzlyGu3VcJ8tHPa/Ep7NolM=";
           };
         };
 
